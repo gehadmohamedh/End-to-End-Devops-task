@@ -1,0 +1,71 @@
+# Docker
+# Build a Docker image
+# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+
+
+pool:
+  name: Default
+  demands:
+  - agent.name -equals ip-172-31-40-198
+  
+stages:
+- stage: provision_infrastructure
+  jobs:
+  - job: installRequirments
+    steps:
+    - task: Bash@3
+      inputs:
+       targetType: 'inline'
+       script: |
+        # Write your commands here
+        echo 'Hello world'
+        wget https://releases.hashicorp.com/terraform/1.4.5/terraform_1.4.5_linux_amd64.zip
+        sudo apt install unzip
+        unzip terraform_1.4.5_linux_amd64.zip
+        sudo mv terraform /usr/local/bin/
+        
+        curl -fsSL https://get.docker.com -o get-docker.sh
+        sudo sh get-docker.sh
+        sudo groupadd docker
+        sudo usermod -aG docker $USER
+        curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "AWSCLIV2.pkg"
+
+        curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.18.0/bin/linux/amd64/kubectl
+        chmod +x ./kubectl
+        sudo mv ./kubectl /usr/local/bin/kubectl
+        kubectl version --client
+
+        sudo installer -pkg AWSCLIV2.pkg -target /
+
+        sudo apt-get update 
+        sudo apt-get install -yy less
+        sudo apt-get install curl
+        sudo apt-get install unzip
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+        unzip awscliv2.zip
+        sudo ./aws/install
+  
+        wget https://github.com/gruntwork-io/terragrunt/releases/download/v0.50.14/terragrunt_linux_amd64
+        mv  terragrunt_linux_amd64 terragrunt
+        chmod u+x terragrunt
+        sudo mv terragrunt /usr/local/bin/terragrunt
+    - task: KubectlInstaller@0
+      inputs:
+        kubectlVersion: 'latest'
+
+    - task: Bash@3
+      inputs:
+        targetType: 'inline'
+        script: |
+          wget https://github.com/gehadmohamedh/terragrunt-aws-eks/archive/refs/heads/main.zip
+          unzip main.zip
+          cd terragrunt-aws-eks-main
+
+    - task: Bash@3
+      inputs:
+        targetType: 'inline' 
+        script: |
+           cd /home/ubuntu/myagent/_work/1/s/terragrunt-aws-eks-main 
+           #terragrunt apply -auto-approve
+           terragrunt destroy
+           

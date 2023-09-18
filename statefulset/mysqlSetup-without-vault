@@ -1,0 +1,28 @@
+CREATE USER 'django'@'%' IDENTIFIED BY 'django123';
+GRANT ALL PRIVILEGES ON 'django' TO 'django'@'%';
+FLUSH PRIVILEGES;
+exit;
+
+
+kubectl run mysql-client --image=mysql:5.7 -i --rm --restart=Never --\
+  mysql -h mysql-0.mysql <<EOF
+ CREATE database django ;
+CREATE USER 'django'@'%' IDENTIFIED BY 'django123';
+GRANT ALL PRIVILEGES ON django.* TO 'django'@'%' IDENTIFIED BY 'django123';
+FLUSH PRIVILEGES;
+EOF
+
+kubectl run mysql-client --image=mysql:5.7 -i --rm --restart=Never --\
+  mysql -h mysql-0.mysql mysql -u django --password=django123 django
+<<EOF
+  CREATE TABLE test.messages (message VARCHAR(250));
+INSERT INTO test.messages VALUES ('hello');
+EOF
+
+
+kubectl run mysql-client --image=mysql:5.7 -i --rm --restart=Never --\
+  mysql -h mysql-0.mysql <<EOF
+  SHOW GRANTS FOR 'django'@'10.0.1.156';
+EOF
+SHOW GRANTS FOR 'django'@'10.0.1.156';
+
