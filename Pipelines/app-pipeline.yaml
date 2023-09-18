@@ -1,0 +1,78 @@
+# Docker
+# Build a Docker image
+# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+
+trigger:
+- main
+
+resources:
+- repo: self
+
+variables:
+  tag: '1.0'
+  CLUSTER-NAME: 'azure-eks'
+
+pool:
+  name: Default
+  demands:
+  - agent.name -equals ip-172-31-40-198
+
+stages:
+  - stage: buildApp 
+    jobs:
+      - job: BuildPushImage
+        steps:
+          - task: DockerInstaller@0
+            inputs:
+              dockerVersion: '17.09.0-ce'
+            
+          - task: Docker@2
+            inputs:
+              containerRegistry: 'docker-hub'
+              repository: 'gehadmohmaed1/monster-pipeline'
+              command: 'buildAndPush'
+              Dockerfile: '**/Dockerfile'
+              tags: $(tag)
+              
+  - stage: scanImage
+    jobs:
+      - job: ScanImage
+        steps:
+          - task: Bash@3
+            inputs:
+              targetType: 'inline'
+              script: |
+                 - script: |
+                  mkdir report
+                  trivy image -s HIGH,CRITICAL gehadmohmaed1/monster-pipeline:$(tag) | tee ./report/trivy-image-scan-report.txt
+            displayName: "Image scan by Trivy"
+            continueOnError: true
+
+  - stage: Deplo
+    jobs:
+    - job: deploydb
+      steps:
+      - task: Bash@3
+        inputs:
+          targetType: 'inline'
+          script: |
+            # Write your commands here
+            aws eks --region us-east-1 update-kubeconfig  --name azure-eks 
+            kubectl apply -f '$(Build.SourcesDirectory)/statefulset'
+            sleep 5
+            kubectl apply -f '$(Build.SourcesDirectory)/monster-deploy.yaml'
+
+      - task: Bash@3
+        inputs:
+          targetType: 'inline'
+          script: |
+            # Write your commands here
+            echo work alredy done here!!
+           # kubectl run mysql-client --image=mysql:5.7 -i --rm --restart=Never --\
+            #  mysql -h mysql-0.mysql <<EOF
+            #CREATE database django ;
+            #CREATE USER 'django'@'%' IDENTIFIED BY 'django123';
+            #GRANT ALL PRIVILEGES ON django.* TO 'django'@'%';
+            #FLUSH PRIVILEGES;
+            #EOF
+      
